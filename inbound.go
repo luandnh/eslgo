@@ -13,9 +13,10 @@ package eslgo
 import (
 	"context"
 	"fmt"
-	"github.com/percipia/eslgo/command"
 	"net"
 	"time"
+
+	"github.com/percipia/eslgo/command"
 )
 
 // InboundOptions - Used to dial a new inbound ESL connection to FreeSWITCH
@@ -75,6 +76,8 @@ func (opts InboundOptions) Dial(address string) (*Conn, error) {
 }
 
 func (c *Conn) disconnectLoop(onDisconnect func()) {
+	c.responseChanMutex.RLock()
+	defer c.responseChanMutex.RUnlock()
 	select {
 	case <-c.responseChannels[TypeDisconnect]:
 		c.Close()
@@ -88,24 +91,25 @@ func (c *Conn) disconnectLoop(onDisconnect func()) {
 }
 
 func (c *Conn) authLoop(auth command.Auth, authTimeout time.Duration) {
-	for {
-		select {
-		case <-c.responseChannels[TypeAuthRequest]:
-			authCtx, cancel := context.WithTimeout(c.runningContext, authTimeout)
-			err := c.doAuth(authCtx, auth)
-			cancel()
-			if err != nil {
-				c.logger.Warn("Failed to auth %e\n", err)
-				// Close the connection, we have the wrong password
-				c.ExitAndClose()
-				return
-			} else {
-				c.logger.Info("Successfully authenticated %s\n", c.conn.RemoteAddr())
-			}
-		case <-c.runningContext.Done():
+	c.responseChanMutex.RLock()
+	defer c.responseChanMutex.RUnlock()
+	select {
+	case <-c.responseChannels[TypeAuthRequest]:
+		authCtx, cancel := context.WithTimeout(c.runningContext, authTimeout)
+		err := c.doAuth(authCtx, auth)
+		cancel()
+		if err != nil {
+			c.logger.Warn("Failed to auth %e\n", err)
+			// Close the connection, we have the wrong password
+			c.ExitAndClose()
 			return
+		} else {
+			c.logger.Info("Successfully authenticated %s\n", c.conn.RemoteAddr())
 		}
+	case <-c.runningContext.Done():
+		return
 	}
+	return
 }
 
 func (c *Conn) doAuth(ctx context.Context, auth command.Auth) error {
