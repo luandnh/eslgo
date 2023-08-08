@@ -15,7 +15,7 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
-	"github.com/percipia/eslgo/command"
+	"github.com/luandnh/eslgo/command"
 	"net"
 	"net/textproto"
 	"sync"

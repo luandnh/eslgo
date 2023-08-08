@@ -16,7 +16,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/percipia/eslgo/command"
+	"github.com/luandnh/eslgo/command"
 )
 
 // InboundOptions - Used to dial a new inbound ESL connection to FreeSWITCH
